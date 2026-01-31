@@ -1,0 +1,161 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local Mouse = Players.LocalPlayer:GetMouse()
+local Active = false
+local RightClickHeld = false
+local FOV = 35
+local HitPart = "Closest" -- Options: "Head", "Torso", "HumanoidRootPart", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "Closest"
+local TeamCheck = true -- Set to false to target teammates
+
+function CheckTeam(Player)
+	if not TeamCheck then
+		return true
+	end
+	if Player.Team == Players.LocalPlayer.Team then
+		return false
+	end
+	return true
+end
+
+function CheckInvisible(Character)
+	for _, Part in pairs(Character:GetDescendants()) do
+		if Part:IsA("BasePart") or Part:IsA("MeshPart") then
+			if Part.Transparency < 1 then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+function CheckForcefield(Character)
+	if Character:FindFirstChildOfClass("ForceField") then
+		return true
+	end
+	return false
+end
+
+function CheckBehind(Character)
+	local ignore = {
+		Character:WaitForChild("Left Arm"),
+		Character:WaitForChild("Right Arm"),
+		Character:WaitForChild("Right Leg"),
+		Character:WaitForChild("Left Leg"),
+		Character:WaitForChild("Torso"),
+		Character:WaitForChild("HumanoidRootPart"),
+		Players.LocalPlayer.Character:WaitForChild("Left Arm"),
+		Players.LocalPlayer.Character:WaitForChild("Right Arm"),
+		Players.LocalPlayer.Character:WaitForChild("Right Leg"),
+		Players.LocalPlayer.Character:WaitForChild("Left Leg"),
+		Players.LocalPlayer.Character:WaitForChild("Torso"),
+		Players.LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+	}
+	local RayCast = Ray.new(Players.LocalPlayer.Character.Head.CFrame.p, (Character.Head.CFrame.p - Players.LocalPlayer.Character.Head.CFrame.p).unit*1000)
+	local Part, Pos = workspace:FindPartOnRayWithIgnoreList(RayCast, ignore, false, true)
+	local Debris = math.floor((Players.LocalPlayer.Character.Head.CFrame.p - Pos).magnitude*100)/100
+	local EndPos = math.floor((Players.LocalPlayer.Character.Head.CFrame.p - Character.Head.CFrame.p).magnitude*100)/100
+	if EndPos - Debris < 2 then
+		return true
+	end
+end
+
+function GetClosestBodyPart(Character)
+	local BodyParts = {"Head", "Torso", "HumanoidRootPart", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
+	local ClosestPart = nil
+	local ClosestDistance = math.huge
+	
+	for _, PartName in pairs(BodyParts) do
+		local Part = Character:FindFirstChild(PartName)
+		if Part then
+			local Vector, onScreen = workspace.CurrentCamera:WorldToScreenPoint(Part.Position)
+			local Magnitude = (Vector2.new(Mouse.X, Mouse.Y)-Vector2.new(Vector.X, Vector.Y)).magnitude
+			if Magnitude < ClosestDistance then
+				ClosestDistance = Magnitude
+				ClosestPart = Part
+			end
+		end
+	end
+	
+	return ClosestPart
+end
+
+function GetTargetPart(Character)
+	if HitPart == "Closest" then
+		return GetClosestBodyPart(Character)
+	else
+		return Character:FindFirstChild(HitPart)
+	end
+end
+
+function FindNearestPlayerToMouse()
+	local Nearest
+	local Numb = math.huge
+	for _, Player in next, Players:GetChildren() do
+		if Player and Player ~= Players.LocalPlayer then
+			if CheckTeam(Player) == true then
+				if Player.Character and CheckInvisible(Player.Character) == false and CheckForcefield(Player.Character) == false then
+					if CheckBehind(Player.Character) == true then
+						if Player.Character:FindFirstChild("Head") and Player.Character:FindFirstChildOfClass("Humanoid") then 
+							local Humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+							if Humanoid.Health > 0 then
+								local TargetPart = GetTargetPart(Player.Character)
+								if TargetPart then
+									local WorldPoint = TargetPart.Position
+									local Vector, onScreen = workspace.CurrentCamera:WorldToScreenPoint(WorldPoint)
+									local Magnitude = (Vector2.new(Mouse.X, Mouse.Y)-Vector2.new(Vector.X, Vector.Y)).magnitude
+									if Numb > Magnitude then 
+										if onScreen then
+											if Magnitude < FOV then
+												Numb = Magnitude
+												Nearest = Player
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	return Nearest
+end
+
+-- MouseButton1 pressed
+game:GetService("UserInputService").InputBegan:connect(function(I, G)
+	if G then return end
+	if I.UserInputType == Enum.UserInputType.MouseButton1 then
+		Active = true
+	end
+	if I.UserInputType == Enum.UserInputType.MouseButton2 then
+		RightClickHeld = true
+	end
+end)
+
+-- MouseButton1 released
+game:GetService("UserInputService").InputEnded:connect(function(I, G)
+	if G then return end
+	if I.UserInputType == Enum.UserInputType.MouseButton1 then
+		Active = false
+	end
+	if I.UserInputType == Enum.UserInputType.MouseButton2 then
+		RightClickHeld = false
+	end
+end)
+
+game:GetService("RunService").Stepped:connect(function()
+   if Active and not RightClickHeld then
+       if FindNearestPlayerToMouse() then
+           local TargetPart = GetTargetPart(FindNearestPlayerToMouse().Character)
+           if TargetPart then
+               local Vector, onScreen = workspace.CurrentCamera:WorldToScreenPoint(TargetPart.Position)
+               local MagnitudeX = Mouse.X - Vector.X
+               local MagnitudeY = Mouse.Y - Vector.Y
+               mousemoverel((-MagnitudeX * 0.075), (-MagnitudeY * 0.075))
+           end
+       end
+	end
+end)
